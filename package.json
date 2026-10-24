@@ -1,15 +1,17 @@
 {
   "name": "mm",
   "version": "1.0.0",
-  "description": "",
-  "main": "build/index.js",
+  "description": "Conversational 3D CAD: an MCP server and a web app that turn natural language into OpenSCAD models, PNG previews and STL files.",
+  "main": "build/mcp.js",
   "type": "module",
   "bin": {
-    "mm": "./build/index.js"
+    "modelmint": "./build/mcp.js"
   },
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "mcp": "node build/mcp.js",
+    "web": "node build/web.js",
+    "test": "tsc && node --test \"build/tests/*.test.js\""
   },
   "files": [
     "build"
@@ -18,11 +20,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.1",
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "express": "^5.3.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^24.8.1",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

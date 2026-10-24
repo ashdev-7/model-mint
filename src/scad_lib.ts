@@ -1,17 +1,20 @@
 export const SCAD_LIBRARY = `
 // --- STANDARD LIBRARY (INJECTED) ---
-$fn = 100; 
+// Units are millimetres. Your own code may override $fn.
+$fn = 64;
 
-// 1. A PERFECT TUBE
+// 1. A TUBE / CUP
+// Closed bottom of thickness \`wall\`, open top. center=true centres it on Z.
 module Tube(height, radius, wall, center = false) {
+    translate([0, 0, center ? -height / 2 : 0])
     difference() {
-        cylinder(h = height, r = radius, center = center);
-        translate([0, 0, center ? 0 : wall])
-            cylinder(h = height + 1, r = radius - wall, center = center);
+        cylinder(h = height, r = radius);
+        translate([0, 0, wall])
+            cylinder(h = height, r = radius - wall);
     }
 }
 
-// 2. A ROUNDED BOX
+// 2. A ROUNDED BOX, centred on the origin. size = [x, y, z].
 module SoftBox(size, radius) {
     minkowski() {
         cube(size - [radius*2, radius*2, radius*2], center=true);
@@ -19,26 +22,29 @@ module SoftBox(size, radius) {
     }
 }
 
-// 3. A PERFECT HANDLE (Improved)
-// Sinks into the mug body and cleans up the inside
-module ArcHandle(mug_radius, handle_radius, thickness, z_center) {
-    
+// 3. A MUG HANDLE
+// A ring sunk into the side of a mug of radius mug_radius, centred at height
+// z_center. Anything inside the mug's inner wall (mug_radius - wall) is cut away.
+module ArcHandle(mug_radius, handle_radius, thickness, z_center, wall = 4) {
     translate([0, 0, z_center])
     difference() {
-        // The Handle Ring
         translate([mug_radius - thickness/2, 0, 0])
         rotate([90, 0, 0])
         rotate_extrude(angle = 360)
             translate([handle_radius, 0])
             circle(d = thickness);
-            
-        // CLEANUP: Remove any handle bits that poke into the drink area
-        // We cut with a cylinder slightly smaller than the mug's inner wall
-        // Assuming mug wall is roughly 2-4mm, we subtract radius - 4
-        cylinder(h=200, r=mug_radius - 4, center=true);
-        
-        // OPTIONAL: Cut the outer half if you want a "C" handle instead of a "D" handle
-        // But for a standard mug, a full loop sunken in is strongest.
+
+        cylinder(h=200, r=mug_radius - wall, center=true);
     }
 }
 `;
+
+export const SCAD_LIBRARY_DOC = `Standard library, already included in every file (units: mm):
+- Tube(height, radius, wall, center=false): cup with a closed bottom and open top.
+- SoftBox(size, radius): rounded box centred on the origin; size is [x, y, z].
+- ArcHandle(mug_radius, handle_radius, thickness, z_center, wall=4): mug handle ring.`;
+
+// Lines the library adds before the model's code, so OpenSCAD's line numbers
+// can be mapped back to the model's own lines.
+export const LIBRARY_HEADER = `${SCAD_LIBRARY}\n// --- AI GENERATED CODE ---\n`;
+export const LIBRARY_LINE_COUNT = LIBRARY_HEADER.split("\n").length - 1;
