@@ -51,6 +51,8 @@
             line-height: 1.5;
         }
         
+        .error-msg { color: #ff3b30; background: #fff0f0; border: 1px solid #ffcccc; }
+
         /* Model Thumbnail Card */
         .model-card { 
             cursor: pointer; 
@@ -158,9 +160,8 @@
 
     <script>
         // --- 1. SESSION MANAGEMENT ---
-        // Generates a unique ID so the server remembers context (e.g. "fix the teeth")
-        const sessionId = "sess_" + Date.now() + "_" + Math.random().toString(36).substr(2, 7);
-        console.log("Session ID:", sessionId);
+        // A random, unguessable ID so the server remembers context (e.g. "fix the teeth")
+        const sessionId = crypto.randomUUID();
 
         let currentBase64Image = null;
 
@@ -185,62 +186,87 @@
         }
 
         // --- 3. CHAT LOGIC ---
+        // Messages are built with textContent, never innerHTML, so text from the
+        // user or the model cannot inject HTML or scripts.
+        function addMessage(className, text) {
+            const div = document.createElement('div');
+            div.className = className;
+            const body = document.createElement('div');
+            body.style.whiteSpace = 'pre-wrap';
+            body.textContent = text;
+            div.appendChild(body);
+            document.getElementById('chat-history').appendChild(div);
+            return div;
+        }
+
         async function sendMessage() {
             const input = document.getElementById('prompt');
             const text = input.value;
-            
+
             // Allow sending if there is text OR an image
             if (!text && !currentBase64Image) return;
 
             const history = document.getElementById('chat-history');
-            
+
             // UI: Show User Message
-            let userHtml = `<div class="user-msg">`;
+            const userDiv = addMessage('user-msg', text || 'Attached image...');
             if (currentBase64Image) {
-                userHtml += `<img src="${currentBase64Image}" style="max-width:200px; display:block; margin-bottom:8px; border-radius:8px;">`;
+                const img = document.createElement('img');
+                img.src = currentBase64Image;
+                img.style.cssText = 'max-width:200px; display:block; margin-bottom:8px; border-radius:8px;';
+                userDiv.prepend(img);
             }
-            userHtml += `${text || "Attached image..."}</div>`;
-            history.innerHTML += userHtml;
 
             // UI: Loading State
             const sendBtn = document.getElementById('send-btn');
             const originalBtnText = sendBtn.innerText;
             sendBtn.innerText = '●●●';
             sendBtn.disabled = true;
-            input.placeholder = "Engineering geometry... (approx 15s)";
+            input.placeholder = "Designing and rendering... (can take a minute)";
 
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        sessionId: sessionId,    
+                    body: JSON.stringify({
+                        sessionId: sessionId,
                         message: text,
-                        image: currentBase64Image 
+                        image: currentBase64Image
                     })
                 });
                 const data = await response.json();
 
                 // UI: Render Bot Response
-                let botHtml = `<div class="bot-msg">${data.text}`;
-                
-                // If a model was created, show the thumbnail card
-                if (data.image && data.model) {
-                    botHtml += `
-                        <br>
-                        <div class="model-card" onclick="openViewer('${data.model}')">
-                            <img src="${data.image}" />
-                            <div class="click-hint">🔎 Click to 3D View</div>
-                        </div>
-                    `;
+                const botDiv = addMessage(response.ok ? 'bot-msg' : 'bot-msg error-msg', data.text);
+
+                // Preview of the latest render; 3D view once an STL has been exported
+                if (data.image) {
+                    const card = document.createElement('div');
+                    card.className = 'model-card';
+                    const img = document.createElement('img');
+                    img.src = data.image;
+                    card.appendChild(img);
+                    if (data.model) {
+                        const hint = document.createElement('div');
+                        hint.className = 'click-hint';
+                        hint.textContent = '🔎 Click to 3D View';
+                        card.appendChild(hint);
+                        card.onclick = () => openViewer(data.model);
+                    }
+                    botDiv.appendChild(card);
+                } else if (data.model) {
+                    const link = document.createElement('div');
+                    link.className = 'click-hint';
+                    link.style.cursor = 'pointer';
+                    link.textContent = '🔎 Open the exported STL in 3D';
+                    link.onclick = () => openViewer(data.model);
+                    botDiv.appendChild(link);
                 }
-                botHtml += `</div>`;
-                history.innerHTML += botHtml;
 
             } catch (e) {
-                history.innerHTML += `<div class="bot-msg" style="color:#ff3b30; background:#fff0f0; border:1px solid #ffcccc;">Error: ${e.message}</div>`;
+                addMessage('bot-msg error-msg', 'Error: ' + e.message);
             }
-            
+
             // UI: Reset
             input.value = '';
             input.placeholder = "Describe a model or upload a sketch...";
