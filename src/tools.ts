@@ -15,6 +15,7 @@ export const TOOL_DEFS = {
     description: [
       "Save OpenSCAD source for a design and render a PNG preview of it. Returns the image so you can check the shape.",
       "Use it for every new design and for every change to one. Always send the COMPLETE code, not a diff.",
+      "Keep designs parametric: put every key dimension in a named variable at the top (e.g. height = 80;) and build the geometry from those variables.",
       "Units are millimetres. The preview is a single auto-fitted view: it does not show exact dimensions; call export_to_stl when you need measured sizes.",
       "Do not use include, use, import() or surface(); they are rejected.",
       SCAD_LIBRARY_DOC,
