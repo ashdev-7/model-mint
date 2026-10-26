@@ -66,7 +66,7 @@ function errorOutcome(err: unknown): ToolOutcome {
 }
 
 function warningText(warnings: string[]): string {
-  return warnings.length ? `\nOpenSCAD warnings:\n${warnings.join("\n")}` : "";
+  return warnings.length ? `\nOpenSCAD messages:\n${warnings.join("\n")}` : "";
 }
 
 export async function runTool(dir: string, name: string, rawInput: unknown): Promise<ToolOutcome> {

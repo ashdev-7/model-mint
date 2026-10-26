@@ -96,13 +96,19 @@ function runOpenscad(args: string[], timeoutMs: number, displayName: string): Pr
             `OpenSCAD not found ("${CONFIG.openscad.bin}"). Install it and add it to PATH, or set OPENSCAD_BIN.`
           ));
         }
+        if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+          return reject(new ScadError(
+            "openscad_error",
+            "OpenSCAD printed more than 5 MB of output and was stopped. Remove echo() calls inside loops."
+          ));
+        }
         if (err.killed) {
           return reject(new ScadError(
             "timeout",
             `OpenSCAD was stopped after ${timeoutMs / 1000}s. Simplify the model: lower $fn, avoid minkowski() and hull() on detailed shapes.`
           ));
         }
-        reject(new ScadError("openscad_error", cleanStderr(stderr, displayName) || err.message));
+        reject(new ScadError("openscad_error", shorten(cleanStderr(stderr, displayName)) || err.message));
       }
     );
   });
@@ -136,11 +142,24 @@ function cleanStderr(stderr: string, displayName: string): string {
   );
 }
 
-// Expects stderr that has already been through cleanStderr.
+// Long output is mostly echo() lines; keep the errors and warnings, then cut.
+export function shorten(text: string): string {
+  const max = CONFIG.limits.maxErrorChars;
+  if (text.length <= max) return text;
+  const important = text.split("\n").filter((line) => /^(ERROR|WARNING)/.test(line)).join("\n");
+  return `${(important || text).slice(0, max)}\n... (output cut, ${text.length} characters in total)`;
+}
+
+const MAX_WARNINGS = 20;
+
+// Expects stderr that has already been through cleanStderr. Includes ERROR
+// lines: some runtime errors, such as a failed assert(), still exit with 0.
 export function extractWarnings(stderr: string): string[] {
-  return stderr
+  const lines = stderr
     .split("\n")
-    .filter((line) => /^(WARNING|DEPRECATED)/.test(line) || line.includes("top level object is empty"));
+    .filter((line) => /^(ERROR|WARNING|DEPRECATED)/.test(line) || line.includes("top level object is empty"));
+  if (lines.length <= MAX_WARNINGS) return lines;
+  return [...lines.slice(0, MAX_WARNINGS), `... and ${lines.length - MAX_WARNINGS} more`];
 }
 
 // ---------------------------------------------------------------------------

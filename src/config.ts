@@ -26,6 +26,8 @@ export const CONFIG = {
   limits: {
     maxCodeChars: 100_000,
     maxNameChars: 64,
+    // Error text sent back to the model; OpenSCAD can print megabytes.
+    maxErrorChars: 4_000,
   },
   web: {
     host: process.env.HOST || "127.0.0.1",

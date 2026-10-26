@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { test } from "node:test";
-import { checkCode, createPreview, exportStl, parseStl, readSource, sanitizeName, ScadError } from "../scad.js";
+import { checkCode, createPreview, exportStl, parseStl, readSource, sanitizeName, ScadError, shorten } from "../scad.js";
 import { hasOpenscad, tempDir } from "./helpers.js";
 
 const skip = hasOpenscad() ? false : "OpenSCAD not installed";
@@ -77,6 +77,29 @@ test("empty geometry previews as a blank image but fails on export", { skip }, a
     assert.equal(err.message, "Current top level object is empty.");
     return true;
   });
+});
+
+test("a flood of echo() output becomes a short error", { skip }, async () => {
+  const code = 'for (i = [0:9998]) for (j = [0:30]) echo("xxxxxxxxxxxxxxxxxxxxxxxx", i, j);\ncube(1);';
+  await assert.rejects(createPreview(tempDir(), "spam", code), (err: ScadError) => {
+    assert.equal(err.kind, "openscad_error");
+    assert.match(err.message, /more than 5 MB/);
+    return true;
+  });
+});
+
+test("shorten keeps the errors and warnings of long output", () => {
+  const echoes = Array.from({ length: 300 }, (_, i) => `ECHO: "line", ${i}`).join("\n");
+  const cut = shorten(`${echoes}\nERROR: something broke in file a.scad, line 2`);
+  assert.ok(cut.length < 4_200, `message is ${cut.length} characters`);
+  assert.match(cut, /^ERROR: something broke/);
+  assert.match(cut, /output cut/);
+  assert.equal(shorten("short"), "short");
+});
+
+test("a failed assert() is reported although OpenSCAD exits with 0", { skip }, async () => {
+  const preview = await createPreview(tempDir(), "check", 'assert(false, "wall too thin");\ncube(1);');
+  assert.ok(preview.warnings.some((w) => /Assertion 'false' failed: "wall too thin"/.test(w)), preview.warnings.join("\n"));
 });
 
 test("export of an unknown design is not_found", async () => {
